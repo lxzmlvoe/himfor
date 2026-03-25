@@ -11,10 +11,10 @@ import random
 import secrets
 import re
 from datetime import datetime, timedelta
-import cv2
 import numpy as np
 import pandas as pd
 import plotly.express as px
+from moviepy.editor import VideoFileClip
 
 st.set_page_config(page_title="小智 - 你的AI伙伴", layout="wide")
 
@@ -137,11 +137,10 @@ def cleanup_temp_files(paths):
 def get_video_info(video_path):
     if not os.path.exists(video_path):
         return None
-    cap = cv2.VideoCapture(video_path)
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    cap.release()
-    return {"duration": total_frames/fps, "fps": fps, "frames": total_frames}
+    clip = VideoFileClip(video_path)
+    info = {"duration": clip.duration, "fps": clip.fps, "frames": int(clip.duration * clip.fps)}
+    clip.close()
+    return info
 
 def init_db():
     conn = sqlite3.connect('users.db')
@@ -326,14 +325,6 @@ def speed_video(input_path, speed, output_path):
         "-filter:a", f"atempo={speed}",
         "-c:a", "aac", output_path
     ], check=True)
-
-def apply_beauty_filter(frame, intensity=0.5):
-    beauty = cv2.bilateralFilter(frame, 9, 75, 75)
-    hsv = cv2.cvtColor(beauty, cv2.COLOR_RGB2HSV).astype(np.float32)
-    hsv[:,:,2] = np.clip(hsv[:,:,2] * (1 + intensity * 0.3), 0, 255)
-    hsv[:,:,1] = np.clip(hsv[:,:,1] * (1 - intensity * 0.2), 0, 255)
-    result = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2RGB)
-    return cv2.addWeighted(frame, 1-intensity, result, intensity, 0)
 
 def render_auth():
     with st.sidebar:
@@ -596,6 +587,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-import streamlit as st
-st.set_page_config(page_title="小智", layout="wide")
-st.write("🎉 伙伴，我们成功了！")
