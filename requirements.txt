@@ -1,1 +1,6 @@
-streamlit
+细流
+opencv-python-headless
+numpy
+熊猫
+plotly
+枕头
