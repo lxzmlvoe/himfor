@@ -1,6 +1,5 @@
+
 streamlit
 moviepy
 numpy
-pandas
-plotly
 pillow
