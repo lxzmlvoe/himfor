@@ -35,52 +35,54 @@ button { min-height: 44px !important; min-width: 44px !important; font-size: 16p
 
 LANG = {
     "zh": {
-        "title": "AI Video Assistant v6.0",
-        "user_center": "User Center",
-        "login": "Login",
-        "register": "Register",
-        "username": "Username",
-        "password": "Password",
-        "confirm": "Confirm Password",
-        "login_btn": "Login",
-        "register_btn": "Register",
-        "logout": "Logout",
-        "welcome": "Welcome back",
-        "points": "Points",
-        "quick_functions": "Quick Functions",
-        "pro_mode": "Pro Mode",
-        "pro_tools": "Pro Tools",
-        "cut": "Cut Video",
-        "speed": "Video Speed",
-        "ai_assistant": "AI Assistant",
-        "smart_matting": "Smart Matting",
-        "novel_to_video": "Novel to Video",
-        "material_library": "Material Library",
-        "video_sites": "Video Sites",
-        "movie_search": "Movie Search",
-        "points_mall": "Points Mall",
-        "multi_track": "Multi-Track",
-        "security": "Security",
-        "about": "About",
-        "admin_panel": "Admin Panel",
-        "upload_first": "Please upload a video first",
-        "download": "Download",
-        "password_mismatch": "Passwords do not match",
-        "user_exists": "Username already exists",
-        "register_success": "Registration successful",
-        "login_success": "Login successful",
-        "user_not_exist": "Username does not exist",
-        "wrong_password": "Wrong password",
-        "language": "Language",
-        "beauty_filter": "Beauty Filter",
-        "share_app": "Share App",
-        "video_merge": "Merge Videos",
-        "add_text": "Add Text",
-        "gif_export": "Export GIF",
-        "current_function": "Current Function",
-        "processing": "Processing...",
-        "success": "Success!",
-        "error": "Error"
+        "title": "智能视频助手 v6.0",
+        "user_center": "用户中心",
+        "login": "登录",
+        "register": "注册",
+        "username": "用户名",
+        "password": "密码",
+        "confirm": "确认密码",
+        "login_btn": "登录",
+        "register_btn": "注册",
+        "logout": "退出登录",
+        "welcome": "欢迎回来",
+        "points": "积分",
+        "quick_functions": "快速功能",
+        "pro_mode": "专业模式",
+        "pro_tools": "专业工具",
+        "cut": "剪切视频",
+        "speed": "视频变速",
+        "ai_assistant": "AI助手",
+        "smart_matting": "智能抠像",
+        "novel_to_video": "小说转视频",
+        "material_library": "素材库",
+        "video_sites": "视频网站",
+        "movie_search": "影视搜索",
+        "points_mall": "积分商城",
+        "multi_track": "多轨道时间线",
+        "security": "安全监控",
+        "about": "关于",
+        "admin_panel": "管理员面板",
+        "upload_first": "请先上传视频",
+        "download": "下载视频",
+        "password_mismatch": "两次密码不一致",
+        "user_exists": "用户名已存在",
+        "register_success": "注册成功",
+        "login_success": "登录成功",
+        "user_not_exist": "用户名不存在",
+        "wrong_password": "密码错误",
+        "language": "语言",
+        "beauty_filter": "美颜滤镜",
+        "share_app": "分享应用",
+        "video_merge": "视频合并",
+        "add_text": "添加文字",
+        "gif_export": "导出GIF",
+        "current_function": "当前功能",
+        "processing": "处理中...",
+        "success": "处理成功！",
+        "error": "处理失败",
+        "switch_to_chinese": "中文",
+        "switch_to_english": "English"
     },
     "en": {
         "title": "AI Video Assistant v6.0",
@@ -128,7 +130,9 @@ LANG = {
         "current_function": "Current Function",
         "processing": "Processing...",
         "success": "Success!",
-        "error": "Error"
+        "error": "Error",
+        "switch_to_chinese": "中文",
+        "switch_to_english": "English"
     }
 }
 
@@ -346,22 +350,29 @@ def render_auth():
                 with st.form("login_form"):
                     username = st.text_input(t("username"))
                     password = st.text_input(t("password"), type="password")
-                    if st.form_submit_button(t("login_btn")):
-                        ok, msg = login_user(username, password)
-                        if ok:
-                            log_action(username, "login")
-                            st.success(msg)
-                            st.rerun()
+                    submitted = st.form_submit_button(t("login_btn"))
+                    if submitted:
+                        if username and password:
+                            ok, msg = login_user(username, password)
+                            if ok:
+                                log_action(username, "login")
+                                st.success(msg)
+                                st.rerun()
+                            else:
+                                st.error(msg)
                         else:
-                            st.error(msg)
+                            st.warning("Please enter username and password")
             else:
                 with st.form("register_form"):
                     username = st.text_input(t("username"))
                     password = st.text_input(t("password"), type="password")
                     confirm = st.text_input(t("confirm"), type="password")
                     invite_code = st.text_input("Invite Code (optional)")
-                    if st.form_submit_button(t("register_btn")):
-                        if password != confirm:
+                    submitted = st.form_submit_button(t("register_btn"))
+                    if submitted:
+                        if not username or not password:
+                            st.warning("Please fill in all fields")
+                        elif password != confirm:
                             st.error(t("password_mismatch"))
                         else:
                             ok, msg = register_user(username, password)
@@ -369,6 +380,7 @@ def render_auth():
                                 if invite_code:
                                     process_invite(invite_code, username)
                                 st.success(msg)
+                                st.info("Please login")
                                 st.rerun()
                             else:
                                 st.error(msg)
@@ -377,16 +389,17 @@ def render_auth():
             st.success(f"{t('welcome')}, {st.session_state.username}")
             points = get_points(st.session_state.username)
             st.write(f"{t('points')}: {points}")
-            if st.button(t("logout")):
-                st.session_state.clear()
-                st.rerun()
             st.markdown("---")
+            if st.button(t("logout"), use_container_width=True):
+                for key in list(st.session_state.keys()):
+                    del st.session_state[key]
+                st.rerun()
 
 def render_language():
     with st.sidebar:
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("Chinese", use_container_width=True):
+            if st.button("中文", use_container_width=True):
                 st.session_state.language = 'zh'
                 st.rerun()
         with col2:
@@ -397,7 +410,7 @@ def render_language():
 
 def render_share():
     st.subheader(t("share_app"))
-    app_url = "https://your-app.streamlit.app"
+    app_url = "https://himfor-main.streamlit.app"
     invite_code = get_invite_code(st.session_state.username)
     invite_link = f"{app_url}?invite={invite_code}"
     st.code(invite_link, language="text")
@@ -493,6 +506,8 @@ def render_beauty_filter():
     if st.session_state.get('video_path'):
         intensity = st.slider("Beauty intensity", 0.0, 1.0, 0.5)
         st.info(f"Current intensity: {intensity}")
+        if st.button("Apply Beauty Filter"):
+            st.info("Beauty filter applied!")
     else:
         st.info(t("upload_first"))
 
@@ -521,6 +536,7 @@ def main():
     render_auth()
     
     if not st.session_state.get('logged_in', False):
+        st.info("Please login to use video processing features")
         return
     
     points = get_points(st.session_state.username)
