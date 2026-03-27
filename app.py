@@ -1,31 +1,28 @@
-"""
-小智 - 智能视频助手 v8.1
+小智-智能视频助手8.1版
 优化：桌面屏显 + 一键直达 + 语音输入
-"""
+进口细流如同标准时间
+进口操作系统（Operating System）
+进口哈希里布
+进口sqlite3
+进口临时文件
+进口子过程
+进口秘密
+进口uuid
+< meta name = “支持苹果手机和移动应用” content = " yes " >
+进口
+进口随意
+进口cv2
+从PIL进口图像,图像绘制,图像字体
 
-import streamlit as st
-import os
-import hashlib
-import sqlite3
-import tempfile
-import subprocess
-import secrets
-import uuid
-import json
-import time
-import random
-import cv2
-from PIL import Image, ImageDraw, ImageFont
-
-st.set_page_config(page_title="小智 - 智能视频助手", page_icon="🤖", layout="wide")
+街道设置页面配置(page_title="小智 - 智能视频助手"，page_icon="🤖",布局="宽")
 
 # ========== PWA支持 ==========
-st.markdown("""
-<link rel="manifest" href="manifest.json">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="小智">
-<link rel="apple-touch-icon" href="https://img.icons8.com/color/96/000000/brain.png">
+街道减价("""
+< link rel = " manifest " href = " manifest。JSON " >
+< meta name = " apple-mobile-we b-app-capable " content = " yes " >
+< meta name = " apple-mobile-we b-app-status-bar-style " content = " black-translucent " >
+< meta name = " apple-mobile-we B- app-title " content = "小智">
+< link rel = " apple-touch-icon " href = " https://img .图标8。com/color/96/000000/brain .png " >
 """, unsafe_allow_html=True)
 
 # ========== 美化CSS ==========
