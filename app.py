@@ -1,6 +1,6 @@
 """
-小智 - 智能视频助手 v8.1
-优化：桌面屏显 + 一键直达 + 语音输入
+小智 - 智能视频助手 v8.2
+优化：消息中心 + 界面微调
 """
 
 import streamlit as st
@@ -16,6 +16,7 @@ import time
 import random
 import cv2
 from PIL import Image, ImageDraw, ImageFont
+from datetime import datetime
 
 st.set_page_config(page_title="小智 - 智能视频助手", page_icon="🤖", layout="wide")
 
@@ -156,6 +157,19 @@ st.markdown("""
 .grid-card:hover {
     transform: translateY(-5px);
     box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+/* 消息中心样式 */
+.message-item {
+    background: white;
+    border-radius: 15px;
+    padding: 12px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.message-time {
+    font-size: 10px;
+    color: #999;
+    margin-top: 5px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -302,6 +316,58 @@ def spend_points(username, points, reason):
     conn.commit()
     conn.close()
     return True
+
+# ========== 消息中心 ==========
+def get_notifications(username):
+    """获取用户的通知列表（从user_logs中提取互动和系统消息）"""
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    # 互动通知：别人点赞/评论/购买了自己的作品（通过user_logs中 action 包含特定内容）
+    c.execute("""
+        SELECT action, timestamp FROM user_logs 
+        WHERE username = ? AND (action LIKE '%点赞%' OR action LIKE '%评论%' OR action LIKE '%购买%')
+        ORDER BY timestamp DESC LIMIT 20
+    """, (username,))
+    interact = c.fetchall()
+    # 系统通知：公益勋章、奖池金到账等（后续可扩展）
+    system = []
+    # 检查是否有公益捐赠记录，作为示例系统消息
+    c.execute("SELECT total_donated FROM welfare_points WHERE user = ?", (username,))
+    welfare = c.fetchone()
+    if welfare and welfare[0] > 0:
+        system.append(("🎖️ 感谢您的公益捐赠！获得爱心勋章", datetime.now().strftime("%Y-%m-%d %H:%M")))
+    conn.close()
+    return interact, system
+
+def render_messages():
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.subheader("📬 消息中心")
+    
+    interact, system = get_notifications(st.session_state.username)
+    
+    if not interact and not system:
+        st.info("暂无新消息")
+    else:
+        if interact:
+            st.markdown("#### 💬 互动消息")
+            for action, ts in interact:
+                st.markdown(f"""
+                <div class="message-item">
+                    📢 {action}<br>
+                    <div class="message-time">{ts}</div>
+                </div>
+                """, unsafe_allow_html=True)
+        if system:
+            st.markdown("#### 📢 系统通知")
+            for msg, ts in system:
+                st.markdown(f"""
+                <div class="message-item">
+                    🔔 {msg}<br>
+                    <div class="message-time">{ts}</div>
+                </div>
+                """, unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # ========== 版图系统 ==========
 POSTER_DIR = "poster_images"
@@ -1137,6 +1203,7 @@ def main():
     st.markdown(f'<div class="stat-item"><div class="stat-number">{wallpaper_count}</div><div class="stat-label">壁纸</div></div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
     
+    # 热门推荐
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
     c.execute("SELECT title, price_points FROM posters ORDER BY created_at DESC LIMIT 3")
@@ -1155,6 +1222,7 @@ def main():
         st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
     
+    # 上传区域
     st.markdown("""
     <div class="upload-card">
         <div style="font-size: 48px;">📤</div>
@@ -1172,10 +1240,12 @@ def main():
         st.video(video_path)
         st.success("✅ 上传成功！")
     
+    # 功能卡片
     st.markdown('<div class="section-title">🎬 视频创作工坊</div>', unsafe_allow_html=True)
     
     col1, col2, col3, col4 = st.columns(4)
     
+    # 剪切视频
     with col1:
         st.markdown("""
         <div class="feature-card">
@@ -1198,6 +1268,7 @@ def main():
             else:
                 st.warning("请先上传视频")
     
+    # 视频变速
     with col2:
         st.markdown("""
         <div class="feature-card">
@@ -1218,6 +1289,7 @@ def main():
             else:
                 st.warning("请先上传视频")
     
+    # 导出GIF
     with col3:
         st.markdown("""
         <div class="feature-card">
@@ -1239,6 +1311,7 @@ def main():
             else:
                 st.info(t("upload_first"))
     
+    # 美颜滤镜
     with col4:
         st.markdown("""
         <div class="feature-card">
@@ -1250,6 +1323,7 @@ def main():
         if st.button("开启美颜", key="beauty_btn"):
             render_beauty_filter()
     
+    # AI创作生态
     st.markdown('<div class="section-title">🤖 AI创作生态</div>', unsafe_allow_html=True)
     
     col1, col2, col3, col4 = st.columns(4)
@@ -1316,6 +1390,7 @@ def main():
         if st.button("打开摄像头", key="camera_btn"):
             render_camera()
     
+    # 公益与奖池
     st.markdown('<div class="section-title">💚 公益与奖池</div>', unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
@@ -1341,6 +1416,11 @@ def main():
         """, unsafe_allow_html=True)
         if st.button("查看奖池", key="jackpot_btn"):
             render_jackpot()
+    
+    # 消息中心入口
+    st.markdown("---")
+    if st.button("📬 消息中心"):
+        render_messages()
 
 if __name__ == "__main__":
     main()
