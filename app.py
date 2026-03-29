@@ -1648,38 +1648,38 @@ def main():
     elif st.session_state.nav_index == 1:
         render_ai_assistant()
     elif st.session_state.nav_index == 2:
-render_asset_system主要的)渲染_资产_系统()
-     否则如果 st.会话状态.导航索引 == 3:
-        渲染社区()
-    其他:
-        渲染_经济()
-        st.减价("---")
-        如果 st.按钮("📬 消息中心"):
-            渲染消息()
-        st.减价("#### 📋 新手任务")
-        tasks = [
-            {"名称": "上传视频", "完成": poster_count > 0 或者 wallpaper_count > 0},
-            {"名称": "生成第一个版图", "完成": poster_count > 0},
-            {"名称": "完成一次公益捐赠", "完成": 获取_福利_积分(st.会话状态.用户名) > 0},
+        render_asset_system()
+    elif st.session_state.nav_index == 3:
+        render_community()
+否则:else主要的
+其他()渲染_经济()
+圣马克道(“-”)减价("---")
+如果圣巴顿(“📬 消息中心”):如果圣巴顿(“📬 消息中心"):
+渲染消息()渲染消息()
+街道减价("####📋 新手任务")减价("#### 📋 新手任务")
+任务= [[
+{ "姓名": "上传视频“，”完成“:海报_计数> 0或壁纸_计数> 0}，{"name": "上传视频", "done": poster_count > 0 or wallpaper_count > 0},
+{ "姓名": "生成第一个版图","完成":poster_count > 0}，{"name ":"生成第一个版图”，“完成”:poster_count > 0}，
+{ "姓名": "完成一次公益捐赠","完成":获取_福利_积分(ST . session _ state。用户名)> 0 }，{ "名称": "完成一次公益捐赠”，“完成”:get _ welfare _ points(ST . session _ state . username)> 0 }，
         ]
-        为 task 在 tasks:
-            status_class = "完成" 如果 task["完成"] 其他 "待定"
-            status_text = "已完成" 如果 task["完成"] 其他 "未完成"
-            st.减价(f " " "
+对于任务中的任务:对于任务中的任务:
+status _ class = " done " if task[" done "]else " pending " " done if task[" done "]else " pending "
+status_text = "已完成"如果任务["完成"]否则"未完成""已完成"如果任务["完成"]否则"未完成"
+圣马克道(f " ")< span class = " task-name " > { task[' name ']}(f " ")
 < div class= "任务项目">
-< span class= "任务名称">{工作['名称']}</span >
-任务-状态{状态_类别}">{状态_文本}</span >
+< span class = " task-name " > { task < span class = " task-status { status _ class } " > { status _ text } ' name ']} </span >
+< span class = " task-status { status _ class } " > { status _ text " "，unsafe_allow_html=True)</span >
 </div >
-            """，unsafe_allow_html=真实的)
-        if not tasks[0]["done"]:
-            st.info("💡 去「剪辑」上传一个视频试试！")
-        elif not tasks[1]["done"]:
-            st.info("💡 上传视频后，去「仓库」生成版图吧！")
-        elif not tasks[2]["done"]:
-            st.info("💡 去「我的」做一次公益捐赠，获得勋章！")
-        else:
-否则:
-            st.success("🎉 恭喜你完成所有新手任务！")
+"""，unsafe_allow_html=True)
+如果不是任务[0]["完成"]:如果不是任务[0]["完成"]:
+st.info("💡 去「剪辑」上传一个视频试试!")信息(“💡 去「剪辑」上传一个视频试试!")
+ 否则如果非任务[1]["完成"]:如果不是任务[1]["完成"]:
+st.info("💡 上传视频后,去「仓库」生成版图吧!")信息(“💡 上传视频后,去「仓库」生成版图吧!")
+ 否则如果非任务[2]["完成"]:如果不是任务[2]["完成"]:
+st.info("💡 去「我的」做一次公益捐赠,获得勋章!")信息(“💡 去「我的」做一次公益捐赠,获得勋章!")
+否则:否则:
+圣气球气球()
+圣成功("🎉 恭喜你完成所有新手任务!")成功(“🎉 恭喜你完成所有新手任务!")
 
-if __name__ == "__main__":
-    main(主要的
+if _ _ name _ _ = " _ _ main _ _ ":_ _ name _ _ = = " _ _ main _ _ ":
+主要的主要的()
