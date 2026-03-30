@@ -266,7 +266,9 @@ LANG = {
 
 def t(key):
     lang = st.session_state.get('language', 'zh')
-    return LANG[lang].get(key, key)# ========== 辅助函数 ==========
+    return LANG[lang].get(key, key)
+
+# ========== 辅助函数 ==========
 def save_uploaded_file(uploaded):
     if uploaded is None:
         return None
@@ -407,7 +409,9 @@ def init_wallpaper_tables():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     conn.commit()
-    conn.close()def init_welfare_tables():
+    conn.close()
+
+def init_welfare_tables():
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS welfare_donations (
@@ -593,7 +597,9 @@ def add_points(username, amount, reason):
     c.execute("INSERT INTO user_logs (username, action) VALUES (?, ?)", (username, reason))
     conn.commit()
     conn.close()
-    return Truedef get_notifications(username):
+    return True
+
+def get_notifications(username):
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
     c.execute("""
@@ -933,7 +939,9 @@ def render_welfare():
     else:
         st.info("暂无公益记录")
     conn.close()
-    st.markdown('</div>', unsafe_allow_html=True)# ========== 奖池金 ==========
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# ========== 奖池金 ==========
 def get_current_jackpot():
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
@@ -1104,7 +1112,9 @@ def synthesize_video_from_story(materials, output_path, progress_callback=None):
     final_clip.write_videofile(output_path, codec='libx264', audio_codec='aac')
     for clip in clips:
         clip.close()
-    final_clip.close()# ========== 智能剪辑分析函数 ==========
+    final_clip.close()
+
+# ========== 智能剪辑分析函数 ==========
 def detect_scene_changes(video_path, threshold=30.0):
     cap = cv2.VideoCapture(video_path)
     prev_frame = None
@@ -1274,7 +1284,10 @@ def get_music_materials():
     c = conn.cursor()
     c.execute("SELECT id, name, tags, url FROM music_materials ORDER BY id")
     rows = c.fetchall()
-    conn.close()# ========== 剪辑页面 ==========
+    conn.close()
+    return [{"id": r[0], "name": r[1], "tags": r[2].split(','), "url": r[3]} for r in rows]
+
+# ========== 剪辑页面 ==========
 def render_clip_page():
     # 模板中心
     st.markdown("#### 🎨 热门模板")
@@ -1301,8 +1314,36 @@ def render_clip_page():
         st.success("✅ 上传成功！")
         
         # ========== 关键帧预览 ==========
-        from components.preview import render_preview_section
-        render_preview_section(video_path)
+        def generate_preview_frames(video_path, num_frames=5):
+            cap = cv2.VideoCapture(video_path)
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            frames = []
+            times = []
+            for i in range(num_frames):
+                frame_pos = int(total_frames * i / num_frames)
+                cap.set(cv2.CAP_PROP_POS_FRAMES, frame_pos)
+                ret, frame = cap.read()
+                if ret:
+                    _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+                    img_str = base64.b64encode(buffer).decode()
+                    frames.append(f"data:image/jpeg;base64,{img_str}")
+                    times.append(frame_pos / fps if fps > 0 else 0)
+            cap.release()
+            return frames, times
+        
+        frames, times = generate_preview_frames(video_path)
+        if frames:
+            st.markdown("#### 🖼️ 关键帧预览")
+            cols = st.columns(len(frames))
+            for i, (img, t) in enumerate(zip(frames, times)):
+                with cols[i]:
+                    st.image(img, use_column_width=True)
+                    if st.button(f"{t:.1f}s", key=f"preview_btn_{i}"):
+                        st.session_state.preview_seek_time = t
+                        st.rerun()
+            if 'preview_seek_time' in st.session_state:
+                st.info(f"⏩ 跳转到 {st.session_state.preview_seek_time:.1f} 秒（视频定位功能开发中）")
         
         st.markdown("#### ✂️ 剪辑工具")
         col1, col2, col3, col4 = st.columns(4)
@@ -1414,7 +1455,8 @@ def render_clip_page():
                 st.session_state.nav_index = 1
                 st.session_state.current_ai_tool = key
                 st.rerun()
-    return [{"id": r[0], "name": r[1], "tags": r[2].split(','), "url": r[3]} for r in rows]# ========== AI创作页面 ==========
+
+# ========== AI创作页面 ==========
 def render_ai_creation_page():
     st.markdown("### 🤖 AI创作工具箱")
     
@@ -1644,7 +1686,11 @@ def render_material_page():
                 with wallpaper_tabs[1]:
                     render_wallpaper_mall()
                 with wallpaper_tabs[2]:
-                    render_my_wallpapers()# ========== 社区页面 ==========
+                    render_my_wallpapers()
+                with wallpaper_tabs[3]:
+                    render_wallpaper_stats()
+
+# ========== 社区页面 ==========
 def render_community_page():
     st.markdown("### 🌐 灵感社区")
     
@@ -2005,5 +2051,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-                with wallpaper_tabs[3]:
-                    render_wallpaper_stats()
