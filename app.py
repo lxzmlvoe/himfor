@@ -686,7 +686,9 @@ def record_action(username, action_type, target_type, target_id):
     c.execute("INSERT INTO user_actions (username, action_type, target_type, target_id) VALUES (?, ?, ?, ?)",
               (username, action_type, target_type, target_id))
     conn.commit()
-    conn.close()# ========== 智能剪辑分析函数 ==========
+    conn.close()
+
+# ========== 智能剪辑分析函数 ==========
 def detect_scene_changes(video_path, threshold=30.0):
     cap = cv2.VideoCapture(video_path)
     prev_frame = None
@@ -1082,10 +1084,8 @@ def render_ai_creation_page():
                 if st.button("一键成片", use_container_width=True):
                     if story_prompt:
                         with st.spinner("正在从素材库选取片段..."):
-                            # 这里需要 get_materials_for_story 函数，简单复用之前的
                             # 临时定义
                             def get_materials_for_story(txt):
-                                # 简单匹配
                                 for m in get_video_materials():
                                     for tag in m["tags"]:
                                         if tag in txt:
@@ -1099,7 +1099,6 @@ def render_ai_creation_page():
                                     progress_bar.progress(int(p * 100))
                                 output_file = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name
                                 try:
-                                    # 使用已有合成函数
                                     video_paths = [get_cached_video(m['url']) for m in materials]
                                     audio_file = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False).name
                                     # 临时生成一个静音音频，实际可配音
@@ -1229,7 +1228,6 @@ def render_material_page():
                         st.info(f"已将 {m['name']} 添加到配乐列表")
     
     with tab3:
-        # 文字模板（暂时保留原有）
         TEXT_TEMPLATES = [
             {"name": "夏日文案", "text": "夏天的风，吹过海面", "tags": ["夏天"]},
             {"name": "旅行标语", "text": "在路上，遇见自己", "tags": ["旅行"]},
@@ -1414,7 +1412,9 @@ def render_my_page():
         st.markdown("---")
         if st.button("退出登录"):
             st.session_state.clear()
-            st.rerun()# ========== 界面辅助函数 ==========
+            st.rerun()
+
+# ========== 界面辅助函数 ==========
 def render_auth():
     with st.sidebar:
         st.markdown("### 👤 用户中心")
