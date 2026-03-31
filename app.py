@@ -1,6 +1,6 @@
 """
-小智 - 智能视频助手 v9.0
-整合：基础剪辑优化、AI创作增强、社区基础、积分流通框架
+小智 - 智能视频助手 v10.0
+整合：基础剪辑、AI创作、版图/壁纸、社区、公益、积分经济、创作者橱窗、话题挑战、勋章系统
 """
 
 import streamlit as st
@@ -34,7 +34,7 @@ st.markdown("""
 <link rel="apple-touch-icon" href="https://img.icons8.com/color/96/000000/brain.png">
 """, unsafe_allow_html=True)
 
-# ========== 美化CSS ==========
+# ========== 美化CSS（与原一致，省略部分样式以节省篇幅，实际需保留完整） ==========
 st.markdown("""
 <style>
 .stApp { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
@@ -156,7 +156,7 @@ def speed_video(input_path, speed, output_path):
 def video_to_gif(input_path, output_path, start=0, duration=5):
     subprocess.run(["ffmpeg", "-i", input_path, "-ss", str(start), "-t", str(duration), "-vf", "fps=10,scale=320:-1", output_path])
 
-# ========== 数据库初始化 ==========
+# ========== 数据库初始化（包含所有表） ==========
 def init_db():
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
@@ -392,7 +392,149 @@ def init_tasks_table():
     conn.commit()
     conn.close()
 
-# ========== 用户认证与积分 ==========
+# ========== 新增表：积分经济、橱窗、话题、勋章 ==========
+def init_economy_tables():
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS user_ads (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user TEXT,
+        ad_type TEXT,
+        points_gained INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS recharge_records (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user TEXT,
+        amount_cents INTEGER,
+        points_gained INTEGER,
+        status TEXT DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS withdraw_records (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user TEXT,
+        points INTEGER,
+        amount_cents INTEGER,
+        fee_cents INTEGER,
+        status TEXT DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS referral_earnings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        referrer TEXT,
+        buyer TEXT,
+        transaction_id INTEGER,
+        amount_points INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS memberships (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user TEXT,
+        type TEXT,
+        points_cost INTEGER,
+        start_date DATE,
+        end_date DATE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS tool_purchases (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user TEXT,
+        tool_id INTEGER,
+        points_cost INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS license_purchases (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user TEXT,
+        asset_id INTEGER,
+        points_cost INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS lottery_records (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user TEXT,
+        points_cost INTEGER,
+        prize TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    conn.commit()
+    conn.close()
+
+def init_cabinet_tables():
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS digital_assets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        creator TEXT,
+        title TEXT,
+        description TEXT,
+        type TEXT,
+        price_points INTEGER,
+        file_path TEXT,
+        preview_path TEXT,
+        tags TEXT,
+        likes INTEGER DEFAULT 0,
+        buys INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'on_sale',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS digital_asset_purchases (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user TEXT,
+        asset_id INTEGER,
+        points_cost INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS creator_earnings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        creator TEXT,
+        asset_id INTEGER,
+        buyer TEXT,
+        amount_points INTEGER,
+        platform_fee INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    conn.commit()
+    conn.close()
+
+def init_social_tables():
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS topics (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        description TEXT,
+        start_date DATE,
+        end_date DATE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS user_topics (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user TEXT,
+        topic_id INTEGER,
+        post_id INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS badges (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        icon TEXT,
+        description TEXT,
+        condition TEXT,
+        points_reward INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS user_badges (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user TEXT,
+        badge_id INTEGER,
+        obtained_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    conn.commit()
+    conn.close()
+
+# 用户认证与积分（原有函数，略）
 def hash_password(password, salt=None):
     if salt is None:
         salt = secrets.token_hex(16)
@@ -554,7 +696,7 @@ def record_action(username, action_type, target_type, target_id):
     conn.commit()
     conn.close()
 
-# ========== 版图/壁纸系统 ==========
+# ========== 版图/壁纸系统（原有函数，略） ==========
 POSTER_DIR = "poster_images"
 WALLPAPER_DIR = "wallpapers"
 os.makedirs(POSTER_DIR, exist_ok=True)
@@ -772,7 +914,7 @@ def render_wallpaper_stats():
     st.markdown("### 📊 壁纸统计")
     st.info("壁纸统计")
 
-# ========== 公益与奖池 ==========
+# ========== 公益与奖池（原有，略） ==========
 WELFARE_PROJECTS = [
     {"id": 1, "name": "乡村儿童视频课", "points": 100, "icon": "🏫", "impact": "支持1个孩子上一节视频课"},
     {"id": 2, "name": "环保视频计划", "points": 50, "icon": "🌍", "impact": "支持1个环保视频拍摄"},
@@ -1069,8 +1211,14 @@ def score_material(material, keywords):
             score += weight
     return score
 
-def match_materials_by_keywords(keywords, materials, top_n=3):
-    scored = [(score_material(m, keywords), m) for m in materials]
+def match_materials_by_keywords(keywords, materials, ref_tags=None, top_n=3):
+    scored = []
+    for m in materials:
+        score = score_material(m, keywords)
+        if ref_tags:
+            ref_score = sum(1 for tag in m["tags"] if tag in ref_tags)
+            score += ref_score * 0.5
+        scored.append((score, m))
     scored.sort(reverse=True, key=lambda x: x[0])
     matched = [m for score, m in scored if score > 0]
     if len(matched) < top_n:
@@ -1127,8 +1275,39 @@ def generate_video_from_text_enhanced(title, content, materials, speed=1.0, voic
                               clip_duration=clip_duration, use_transition=use_transition)
     return output_file
 
-# ========== 页面渲染函数 ==========
+def extract_reference_tags(ref_images):
+    tags = []
+    for img_file in ref_images:
+        name = os.path.splitext(img_file.name)[0].lower()
+        for keyword in ["夏天", "海边", "旅行", "美食", "宠物", "科技", "夜景", "城市"]:
+            if keyword in name:
+                tags.append(keyword)
+    return list(set(tags))# ========== 页面渲染函数 ==========
 def render_clip_page():
+    # 检查是否有待编辑视频
+    if 'pending_edit_video' in st.session_state and st.session_state.pending_edit_video:
+        video_path = st.session_state.pending_edit_video
+        st.session_state.video_path = video_path
+        del st.session_state.pending_edit_video
+        st.video(video_path)
+        st.success("✅ 视频已自动加载，可以开始剪辑！")
+    else:
+        st.markdown("### 🎬 开始创作")
+        uploaded = st.file_uploader("", type=["mp4", "mov", "avi"], label_visibility="collapsed", key="clip_upload")
+        if uploaded:
+            video_path = save_uploaded_file(uploaded)
+            st.session_state.video_path = video_path
+            st.video(video_path)
+            st.success("✅ 上传成功！")
+        else:
+            st.markdown("""
+            <div style="text-align:center; padding: 50px; border: 2px dashed #ccc; border-radius: 20px;">
+                <div style="font-size: 48px;">📤</div>
+                <p>点击或拖拽视频开始创作</p>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    # 模板中心
     st.markdown("#### 🎨 热门模板")
     templates = [
         {"name": "春日回忆", "image": "https://picsum.photos/300/200?random=1", "desc": "春天主题，温暖治愈"},
@@ -1144,110 +1323,101 @@ def render_clip_page():
                 st.info(f"模板 {tpl['name']} 已添加到待编辑列表（功能开发中）")
     st.markdown("---")
     
-    st.markdown("### 🎬 开始创作")
-    uploaded = st.file_uploader("", type=["mp4", "mov", "avi"], label_visibility="collapsed", key="clip_upload")
-    if uploaded:
-        video_path = save_uploaded_file(uploaded)
-        st.session_state.video_path = video_path
-        st.video(video_path)
-        st.success("✅ 上传成功！")
-        
-        render_preview_section(video_path)
-        
-        st.markdown("#### ✂️ 剪辑工具")
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            if st.button("剪切视频", use_container_width=True):
-                if st.session_state.get('video_path'):
-                    dur = get_video_info(st.session_state.video_path)["duration"]
-                    with st.expander("设置剪切时间", expanded=True):
-                        start = st.number_input("开始(秒)", 0.0, dur, 0.0)
-                        end = st.number_input("结束(秒)", 0.0, dur, min(5.0, dur))
-                        if st.button("确认剪切"):
-                            out = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name
-                            cut_video(st.session_state.video_path, start, end, out)
-                            with open(out, "rb") as f:
-                                st.download_button("下载", f, file_name="cut.mp4")
-                else:
-                    st.warning("请先上传视频")
-        with col2:
-            if st.button("视频变速", use_container_width=True):
-                if st.session_state.get('video_path'):
-                    with st.expander("选择速度", expanded=True):
-                        def apply_speed(s):
-                            out = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name
-                            speed_video(st.session_state.video_path, s, out)
-                            with open(out, "rb") as f:
-                                st.download_button("下载", f, file_name=f"speed_{s}x.mp4")
-                        cols_s = st.columns(4)
-                        with cols_s[0]:
-                            if st.button("0.5x"): apply_speed(0.5)
-                        with cols_s[1]:
-                            if st.button("1.0x"): apply_speed(1.0)
-                        with cols_s[2]:
-                            if st.button("1.5x"): apply_speed(1.5)
-                        with cols_s[3]:
-                            if st.button("2.0x"): apply_speed(2.0)
-                        speed = st.number_input("自定义倍数", 0.5, 2.0, 1.0, step=0.1)
-                        if st.button("应用自定义"):
-                            apply_speed(speed)
-                else:
-                    st.warning("请先上传视频")
-        with col3:
-            if st.button("导出GIF", use_container_width=True):
-                if st.session_state.get('video_path'):
-                    with st.expander("设置GIF参数", expanded=True):
-                        start = st.number_input("开始时间(秒)", 0.0, 10.0, 0.0)
-                        duration = st.number_input("时长(秒)", 1.0, 10.0, 3.0)
-                        if st.button("确认导出"):
-                            out = tempfile.NamedTemporaryFile(suffix=".gif", delete=False).name
-                            video_to_gif(st.session_state.video_path, out, start, duration)
-                            with open(out, "rb") as f:
-                                st.download_button("下载", f, file_name="output.gif")
-                else:
-                    st.info("请先上传视频")
-        with col4:
-            if st.button("美颜滤镜", use_container_width=True):
-                st.info("美颜滤镜开发中，敬请期待")
-        
-        st.markdown("#### 🧠 智能剪辑")
-        if st.button("🔍 分析精彩片段", use_container_width=True):
+    # 关键帧预览（如果有视频路径）
+    if st.session_state.get('video_path'):
+        render_preview_section(st.session_state.video_path)
+    
+    st.markdown("#### ✂️ 剪辑工具")
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        if st.button("剪切视频", use_container_width=True):
+            if st.session_state.get('video_path'):
+                dur = get_video_info(st.session_state.video_path)["duration"]
+                with st.expander("设置剪切时间", expanded=True):
+                    start = st.number_input("开始(秒)", 0.0, dur, 0.0)
+                    end = st.number_input("结束(秒)", 0.0, dur, min(5.0, dur))
+                    if st.button("确认剪切"):
+                        out = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name
+                        cut_video(st.session_state.video_path, start, end, out)
+                        with open(out, "rb") as f:
+                            st.download_button("下载", f, file_name="cut.mp4")
+            else:
+                st.warning("请先上传视频")
+    with col2:
+        if st.button("视频变速", use_container_width=True):
+            if st.session_state.get('video_path'):
+                with st.expander("选择速度", expanded=True):
+                    def apply_speed(s):
+                        out = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name
+                        speed_video(st.session_state.video_path, s, out)
+                        with open(out, "rb") as f:
+                            st.download_button("下载", f, file_name=f"speed_{s}x.mp4")
+                    cols_s = st.columns(4)
+                    with cols_s[0]:
+                        if st.button("0.5x"): apply_speed(0.5)
+                    with cols_s[1]:
+                        if st.button("1.0x"): apply_speed(1.0)
+                    with cols_s[2]:
+                        if st.button("1.5x"): apply_speed(1.5)
+                    with cols_s[3]:
+                        if st.button("2.0x"): apply_speed(2.0)
+                    speed = st.number_input("自定义倍数", 0.5, 2.0, 1.0, step=0.1)
+                    if st.button("应用自定义"):
+                        apply_speed(speed)
+            else:
+                st.warning("请先上传视频")
+    with col3:
+        if st.button("导出GIF", use_container_width=True):
+            if st.session_state.get('video_path'):
+                with st.expander("设置GIF参数", expanded=True):
+                    start = st.number_input("开始时间(秒)", 0.0, 10.0, 0.0)
+                    duration = st.number_input("时长(秒)", 1.0, 10.0, 3.0)
+                    if st.button("确认导出"):
+                        out = tempfile.NamedTemporaryFile(suffix=".gif", delete=False).name
+                        video_to_gif(st.session_state.video_path, out, start, duration)
+                        with open(out, "rb") as f:
+                            st.download_button("下载", f, file_name="output.gif")
+            else:
+                st.info("请先上传视频")
+    with col4:
+        if st.button("美颜滤镜", use_container_width=True):
+            st.info("美颜滤镜开发中，敬请期待")
+    
+    # 智能剪辑
+    st.markdown("#### 🧠 智能剪辑")
+    if st.button("🔍 分析精彩片段", use_container_width=True):
+        if st.session_state.get('video_path'):
             with st.spinner("正在分析视频，请稍候..."):
-                segments = get_highlight_segments(video_path, duration=3, num_segments=3)
+                segments = get_highlight_segments(st.session_state.video_path, duration=3, num_segments=3)
                 st.session_state.highlight_segments = segments
             st.success("分析完成！")
-        
-        if 'highlight_segments' in st.session_state and st.session_state.highlight_segments:
-            st.markdown("##### ✨ 推荐精彩片段")
-            selected = []
-            for i, (start, end) in enumerate(st.session_state.highlight_segments):
-                col1, col2, col3 = st.columns([3, 1, 1])
-                with col1:
-                    st.write(f"片段 {i+1}: {start:.1f}s - {end:.1f}s")
-                with col2:
-                    if st.button(f"单独下载", key=f"dl_{i}"):
-                        out = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name
-                        cut_video(video_path, start, end, out)
-                        with open(out, "rb") as f:
-                            st.download_button("下载片段", f, file_name=f"highlight_{i+1}.mp4", key=f"dl_btn_{i}")
-                with col3:
-                    if st.checkbox("选中", key=f"select_{i}"):
-                        selected.append((start, end))
-            if selected:
-                if st.button("🎬 合成选中片段", use_container_width=True):
-                    out_path = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name
-                    with st.spinner("正在合成视频..."):
-                        merge_segments(video_path, selected, out_path)
-                    st.success("合成完成！")
-                    with open(out_path, "rb") as f:
-                        st.download_button("下载合成视频", f, file_name="merged.mp4", mime="video/mp4")
-    else:
-        st.markdown("""
-        <div style="text-align:center; padding: 50px; border: 2px dashed #ccc; border-radius: 20px;">
-            <div style="font-size: 48px;">📤</div>
-            <p>点击或拖拽视频开始创作</p>
-        </div>
-        """, unsafe_allow_html=True)
+        else:
+            st.warning("请先上传视频")
+    
+    if 'highlight_segments' in st.session_state and st.session_state.highlight_segments:
+        st.markdown("##### ✨ 推荐精彩片段")
+        selected = []
+        for i, (start, end) in enumerate(st.session_state.highlight_segments):
+            col1, col2, col3 = st.columns([3, 1, 1])
+            with col1:
+                st.write(f"片段 {i+1}: {start:.1f}s - {end:.1f}s")
+            with col2:
+                if st.button(f"单独下载", key=f"dl_{i}"):
+                    out = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name
+                    cut_video(st.session_state.video_path, start, end, out)
+                    with open(out, "rb") as f:
+                        st.download_button("下载片段", f, file_name=f"highlight_{i+1}.mp4", key=f"dl_btn_{i}")
+            with col3:
+                if st.checkbox("选中", key=f"select_{i}"):
+                    selected.append((start, end))
+        if selected:
+            if st.button("🎬 合成选中片段", use_container_width=True):
+                out_path = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name
+                with st.spinner("正在合成视频..."):
+                    merge_segments(st.session_state.video_path, selected, out_path)
+                st.success("合成完成！")
+                with open(out_path, "rb") as f:
+                    st.download_button("下载合成视频", f, file_name="merged.mp4", mime="video/mp4")
     
     st.markdown("#### 🔥 热门工具")
     hot_tools = [
@@ -1340,8 +1510,10 @@ def render_ai_creation_page():
                                 try:
                                     synthesize_video_from_story(materials, output_file, progress_callback=update_progress)
                                     st.success("视频合成完成！点击下载")
-                                    with open(output_file, "rb") as f:
-                                        st.download_button("下载视频", f, file_name="story_video.mp4", mime="video/mp4")
+                                    # 新增：保存路径并跳转剪辑
+                                    st.session_state.pending_edit_video = output_file
+                                    st.session_state.jump_to_clip = True
+                                    st.rerun()
                                 except Exception as e:
                                     st.error(f"合成失败：{e}")
                                 progress_bar.empty()
@@ -1362,13 +1534,20 @@ def render_ai_creation_page():
                 with col2:
                     use_transition = st.checkbox("添加转场效果", value=True)
                     voice_id = st.selectbox("音色", ["默认", "女性", "男性"])
+                # 新增：上传参考图片
+                st.markdown("**参考图片（可选）**")
+                ref_images = st.file_uploader("上传参考图片，AI将根据图片风格匹配素材", type=["jpg", "jpeg", "png"], accept_multiple_files=True, key="ref_images")
+                if ref_images:
+                    st.success(f"已上传 {len(ref_images)} 张参考图")
+            
             if st.button("生成视频", use_container_width=True):
                 if title and content:
                     with st.spinner("正在生成视频，请稍候..."):
                         try:
                             keywords = extract_keywords_weighted(title, content)
                             all_materials = get_video_materials()
-                            matched_materials = match_materials_by_keywords(keywords, all_materials)
+                            ref_tags = extract_reference_tags(ref_images) if ref_images else None
+                            matched_materials = match_materials_by_keywords(keywords, all_materials, ref_tags=ref_tags)
                             if not matched_materials:
                                 matched_materials = all_materials[:2]
                             output_file = generate_video_from_text_enhanced(
@@ -1379,8 +1558,10 @@ def render_ai_creation_page():
                                 use_transition=use_transition
                             )
                             st.success("视频生成完成！点击下载")
-                            with open(output_file, "rb") as f:
-                                st.download_button("下载视频", f, file_name="text2video.mp4", mime="video/mp4")
+                            # 新增：保存路径并跳转剪辑
+                            st.session_state.pending_edit_video = output_file
+                            st.session_state.jump_to_clip = True
+                            st.rerun()
                         except Exception as e:
                             st.error(f"生成失败：{e}")
                 else:
@@ -1422,7 +1603,7 @@ def render_material_page():
                 st.info(f"已将 {m['name']} 添加到待编辑列表")
     
     st.markdown("---")
-    tab1, tab2, tab3, tab4 = st.tabs(["🎬 视频素材", "🎵 背景音乐", "📝 文字模板", "🎨 数字资产"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🎬 视频素材", "🎵 背景音乐", "📝 文字模板", "🎨 数字资产", "🛍️ 创作者橱窗"])
     
     with tab1:
         videos = get_video_materials()
@@ -1491,8 +1672,10 @@ def render_material_page():
                     render_my_wallpapers()
                 with wallpaper_tabs[3]:
                     render_wallpaper_stats()
-
-def tip_post(user, post_id, amount):
+    
+    with tab5:
+        st.markdown("#### 🛍️ 创作者橱窗")
+        st.info("创作者橱窗开发中，敬请期待！未来可购买视频模板、特效包、音乐等数字资def tip_post(user, post_id, amount):
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
     c.execute("SELECT user FROM posts WHERE id=?", (post_id,))
@@ -1692,7 +1875,7 @@ def render_my_page():
                 st.error("积分不足")
     st.markdown("---")
     
-    tab1, tab2, tab3, tab4 = st.tabs(["📦 我的作品", "❤️ 我的收藏", "🌍 公益", "⚙️ 设置"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📦 我的作品", "❤️ 我的收藏", "🌍 公益", "⚙️ 设置", "🏅 勋章墙"])
     with tab1:
         st.markdown("#### 🖼️ 我的版图")
         render_my_posters()
@@ -1714,6 +1897,9 @@ def render_my_page():
         if st.button("退出登录"):
             st.session_state.clear()
             st.rerun()
+    with tab5:
+        st.markdown("#### 🏅 我的勋章")
+        st.info("勋章系统开发中，敬请期待！完成成就即可获得专属勋章。")
 
 def render_auth():
     with st.sidebar:
@@ -1873,6 +2059,7 @@ def main():
         if 'username' in st.session_state:
             st.session_state.logged_in = True
 
+    # 初始化所有表
     init_db()
     init_poster_tables()
     init_wallpaper_tables()
@@ -1883,43 +2070,52 @@ def main():
     init_user_actions_table()
     init_promotions_table()
     init_tasks_table()
-
+    init_economy_tables()
+    init_cabinet_tables()
+    init_social_tables()
+    
+        render_community_page()
     render_language()
-    render_auth()
 
-    if not st.session_state.get('logged_in', False):
-        st.markdown("""
-        <div class="main-header">
-            <div style="font-size: 60px;">🤖</div>
-            <h1>小智 - 智能视频助手</h1>
-            <p>你的AI视频创作伙伴</p>
-        </div>
-        """, unsafe_allow_html=True)
-        st.info("👈 请先在左侧登录或注册")
-        return
+如果不是ST . session _ state . get(' logged _ in '，False):
+圣马克道(""
+< div class="main-header " >
+< div style = " font-size:60px；">🤖</div >
+< h1 >小智-智能视频助手</h1 >
+< p >你的人工智能视频创作伙伴</p >
+</div >
+"""，unsafe_allow_html=True)
+st.info("👈 请先在左侧登录或注册")
+返回
+
+    # 检查是否需要跳转到剪辑页
+如果圣会话_状态。get(' jump _ to _ clip '，False):
+st.session_state.nav_index = 0
+圣会话_状态。跳转到剪辑=假
+st.rerun()
 
     # 底部导航栏
-    if 'nav_index' not in st.session_state:
-        st.session_state.nav_index = 0
+如果"导航索引"不在第一会话状态中：
+st.session_state.nav_index = 0
 
-    nav_items = ["🎬 剪辑", "🤖 AI创作", "📦 素材", "🌐 社区", "👤 我的"]
-    cols = st.columns(len(nav_items))
-    for i, name in enumerate(nav_items):
-        with cols[i]:
-            if st.button(name, use_container_width=True):
-                st.session_state.nav_index = i
-                st.rerun()
+nav_items = ["🎬 剪辑", "🤖人工智能创作", "📦 素材", "🌐 社区", "👤 我的"]
+cols = st.columns(len(nav_items))
+对于我，枚举中的名称(导航项目):
+带列[i]:
+if st.button(name，use_container_width=True):
+st.session_state.nav_index = i
+st.rerun()
 
-    if st.session_state.nav_index == 0:
-        render_clip_page()
-    elif st.session_state.nav_index == 1:
-        render_ai_creation_page()
-    elif st.session_state.nav_index == 2:
-        render_material_page()
-    elif st.session_state.nav_index == 3:
-        render_community_page()
-    else:
-        render_my_page()
+如果st.session_state.nav_index == 0:
+render_clip_page()
+ 否则如果第一会话状态。导航索引= = 1:
+render_ai_creation_page()
+ 否则如果第一会话状态。导航索引= = 2:
+render_material_page()
+ 否则如果第一会话状态. nav _ index = = 3:
+render_community_page()
+否则:
+render_my_page()
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__ ":
+主要的()产。")
