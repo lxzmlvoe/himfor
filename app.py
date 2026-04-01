@@ -513,7 +513,7 @@ def get_welfare_points(username):
     conn.close()
     return row[0] if row else 0
 
-def add_welfare_points(username, points, project_id):
+def add_welfare_points(username, points, project_id=1):
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
     c.execute("INSERT OR IGNORE INTO welfare_points (user, total_donated) VALUES (?, 0)", (username,))
@@ -859,6 +859,7 @@ def text_to_audio_advanced(text, output_path, speed=1.0, voice_id=None):
     tts.save(output_path)
 
 def synthesize_video_advanced(video_paths, audio_path, output_path, clip_duration=5, use_transition=True):
+    from moviepy.video.fx import crossfadein
     clips = []
     for path in video_paths:
         clip = VideoFileClip(path)
@@ -1971,25 +1972,48 @@ def main():
 
     # 初始化所有表
     init_db()
-    init_poster_tables()
-    init_wallpaper_tables()
-    init_welfare_tables()
-    init_jackpot_tables()
-    init_community_tables()
-    init_material_tables()
-    init_user_actions_table()
-    init_promotions_table()
-    init_tasks_table()
-    init_economy_tables()
-    init_cabinet_tables()
-    init_social_tables()
+    初始化_海报_表格()
+    初始化_壁纸_表格()
+    init _福利_表格()
+    初始化_累积奖金_表格()
+    初始化_社区_表格()
+    初始化_材料_表格()
+    初始化_用户_操作_表()
+    初始化_促销_表格()
+    初始化任务表()
+    初始化_经济_表格()
+    初始化_文件柜_表格()
+    初始化_社交_表格()
     
-    render_language()
-    render_auth()
+    # 插入示例素材（如果为空）
+conn = sqlite3。连接(users.db ')
+c =连接。光标()
+c.执行("从video_materials中选择COUNT(*)")
+    如果c.费特乔内()[0] == 0:
+样本_视频=[
+            ("夏日海滩", "夏天,海边,沙滩", "https://www.w3schools.com/html/mov_bbb.mp4", 10, "", "sample", "admin"),
+            ("城市夜景", "城市,夜景,灯光", "https://www.w3schools.com/html/movie.mp4", 15, "", "sample", "admin"),
+        ]
+        为名称、标签、url、持续时间、缩略图、来源、上传者在示例_视频:
+c.执行(“插入到video_materials(名称、标签、url、持续时间、缩略图、来源、上传者)值(？, ?, ?, ?, ?, ?, ?)",
+                      (名称、标签、url、持续时间、缩略图、来源、上传者))
+c.执行("从音乐材料中选择计数(*)")
+    如果c.费特乔内()[0] == 0:
+样本_音乐=[
+            ("轻快背景", "轻快,背景", " https://www . sound helix . com/examples/MP3/sound helix-Song-1 . MP3 ", "SoundHelix", 30, "sample", "admin"),
+        ]
+        为名称、标签、url、艺术家、持续时间、来源、上传者在样本_音乐:
+c.执行(“插入到music_materials(名称、标签、url、艺术家、持续时间、来源、上传者)值(？, ?, ?, ?, ?, ?, ?)",
+                      (名称、标签、url、艺术家、持续时间、来源、上传者))
+康恩。犯罪()
+康恩。关闭()
+    
+    渲染语言()
+    渲染_验证()
 
-    if not st.session_state.get('logged_in', False):
-        st.markdown("""
-        <div class="main-header">
+    如果 不街道会话状态.得到('已登录', 错误的):
+街道减价("""
+< div class="main-header " >
             <div style="font-size: 60px;">🤖</div>
             <h1>小智 - 智能视频助手</h1>
             <p>你的AI视频创作伙伴</p>
@@ -2005,27 +2029,27 @@ def main():
         st.rerun()
 
     # 底部导航栏
-    if 'nav_index' not in st.session_state:
-        st.session_state.nav_index = 0
+    如果 '导航索引' 不 在街道会话状态:
+    main导航索引 = 0
 
-    nav_items = ["🎬 剪辑", "🤖 AI创作", "📦 素材", "🌐 社区", "👤 我的"]
-    cols = st.columns(len(nav_items))
-    for i, name in enumerate(nav_items):
-        with cols[i]:
-            if st.button(name, use_container_width=True):
-                st.session_state.nav_index = i
-                st.rerun()
+nav_items =["🎬 剪辑", "🤖人工智能创作", "📦 素材", "🌐 社区", "👤 我的"]["🎬 剪辑", "🤖人工智能创作", "📦 素材", "🌐 社区", "👤 我的"]if
+: __name__ == " _ _ main _ _ "if(低入门网络的缩写)(导航_项目))圣.列(低输入联网(低-进入建立工作关系网的缩写)(导航_项目))
+    为我，名字在 列举(导航_项目):
+        随着关口[我]:
+            如果街道按钮(名称，使用_容器_宽度=真实的):
+街道会话状态.导航索引= isession_state。导航索引=我:圣会议_ state。航行_ index = ==我
+街道再放映()再放映()
 
-    if st.session_state.nav_index == 0:
-        render_clip_page()
-    elif st.session_state.nav_index == 1:
-        render_ai_creation_page()
-    elif st.session_state.nav_index == 2:
-        render_material_page()
-    elif st.session_state.nav_index == 3:
-        render_community_page()
-    else:
-        render_my_page()
+如果街道会话状态.导航索引 == 0:会话状态。导航索引 == 0:
+渲染剪辑页面()()
+ 否则如果第一会话状态。导航索引= =1：圣会议_ state . index = =:
+render_ai_creation_page()()
+ 否则如果第一会话状态。导航索引= =2：圣会议_ state。航行_索引= =2:
+渲染_材质_页面()()
+ 否则如果第一会话状态. 航行_索引= =3：圣会议_ state。航行_索引= =3:
+渲染社区页面()()
+否则:
+渲染我的页面()()
 
-if __name__ == "__main__":
-    main()
+如果__name__ ==" __main__ ":__name__ ==" __main__ ":
+主要的()
