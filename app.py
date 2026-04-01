@@ -407,10 +407,8 @@ def init_social_tables():
         badge_id INTEGER,
         obtained_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
-    conn.commit()
-    conn.close()
-
-# ========== 用户认证与积分 ==========
+    conn.commit(
+    conn.close()# ========== 用户认证与积分 ==========
 def hash_password(password, salt=None):
     if salt is None:
         salt = secrets.token_hex(16)
@@ -632,7 +630,38 @@ def speed_video(input_path, speed, output_path):
 def video_to_gif(input_path, output_path, start=0, duration=5):
     subprocess.run(["ffmpeg", "-i", input_path, "-ss", str(start), "-t", str(duration), "-vf", "fps=10,scale=320:-1", output_path])
 
-# ========== 智能分析 ==========
+def generate_preview_frames(video_path, num_frames=5):
+    cap = cv2.VideoCapture(video_path)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    frames = []
+    times = []
+    for i in range(num_frames):
+        frame_pos = int(total_frames * i / num_frames)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_pos)
+        ret, frame = cap.read()
+        if ret:
+            _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+            img_str = base64.b64encode(buffer).decode()
+            frames.append(f"data:image/jpeg;base64,{img_str}")
+            times.append(frame_pos / fps if fps > 0 else 0)
+    cap.release()
+    return frames, times
+
+def render_preview_section(video_path):
+    frames, times = generate_preview_frames(video_path)
+    if not frames:
+        return
+    st.markdown("#### 🖼️ 关键帧预览")
+    cols = st.columns(len(frames))
+    for i, (img, t) in enumerate(zip(frames, times)):
+        with cols[i]:
+            st.image(img, use_column_width=True)
+            if st.button(f"{t:.1f}s", key=f"preview_btn_{i}"):
+                st.session_state.preview_seek_time = t
+                st.rerun()
+    if 'preview_seek_time' in st.session_state:
+        st.info(f"⏩ 跳转到 {st.session_state.preview_seek_time:.1f} 秒（视频定位功能开# ========== 智能分析 ==========
 def detect_scene_changes(video_path, threshold=30.0):
     cap = cv2.VideoCapture(video_path)
     prev_frame = None
@@ -726,39 +755,6 @@ def merge_segments(video_path, segments, output_path):
     for clip in clips:
         clip.close()
     final.close()
-
-def generate_preview_frames(video_path, num_frames=5):
-    cap = cv2.VideoCapture(video_path)
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    frames = []
-    times = []
-    for i in range(num_frames):
-        frame_pos = int(total_frames * i / num_frames)
-        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_pos)
-        ret, frame = cap.read()
-        if ret:
-            _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
-            img_str = base64.b64encode(buffer).decode()
-            frames.append(f"data:image/jpeg;base64,{img_str}")
-            times.append(frame_pos / fps if fps > 0 else 0)
-    cap.release()
-    return frames, times
-
-def render_preview_section(video_path):
-    frames, times = generate_preview_frames(video_path)
-    if not frames:
-        return
-    st.markdown("#### 🖼️ 关键帧预览")
-    cols = st.columns(len(frames))
-    for i, (img, t) in enumerate(zip(frames, times)):
-        with cols[i]:
-            st.image(img, use_column_width=True)
-            if st.button(f"{t:.1f}s", key=f"preview_btn_{i}"):
-                st.session_state.preview_seek_time = t
-                st.rerun()
-    if 'preview_seek_time' in st.session_state:
-        st.info(f"⏩ 跳转到 {st.session_state.preview_seek_time:.1f} 秒（视频定位功能开发中）")
 
 # ========== 素材库函数 ==========
 def get_video_materials():
@@ -888,9 +884,7 @@ def generate_video_from_text_enhanced(title, content, materials, speed=1.0, voic
     output_file = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name
     synthesize_video_advanced(video_paths, audio_file, output_file,
                               clip_duration=clip_duration, use_transition=use_transition)
-    return output_file
-
-# ========== 版图/壁纸系统 ==========
+    return output_file发中）")# ========== 版图/壁纸系统 ==========
 def save_poster_image(frame, poster_id):
     height, width = frame.shape[:2]
     max_size = 300
@@ -1212,9 +1206,7 @@ def render_jackpot():
     - **10%** 分配给新星榜Top4
     - **10%** 滚入下月奖池
     """)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# ========== 页面渲染函数 ==========
+    st.markdown('</div>', unsafe_allow_html=True)# ========== 页面渲染函数 ==========
 def render_clip_page():
     # 检查是否有待编辑视频
     if 'pending_edit_video' in st.session_state and st.session_state.pending_edit_video:
@@ -1963,6 +1955,7 @@ def render_meme_factory():
             else:
                 st.warning("请输入文字")
 
+# ========== 主函数 ==========
 def main():
     if 'language' not in st.session_state:
         st.session_state.language = 'zh'
