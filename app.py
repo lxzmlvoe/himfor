@@ -1,8 +1,3 @@
-"""
-小智 - 智能视频助手 v10.0
-整合：基础剪辑、AI创作、版图/壁纸、社区、公益、积分经济、创作者橱窗、话题挑战、勋章系统
-"""
-
 import streamlit as st
 import os
 import hashlib
@@ -15,148 +10,30 @@ import json
 import time
 import random
 import re
+import base64
+import numpy as np
+import pandas as pd
+import plotly.express as px
 import cv2
 import requests
 import jieba.analyse
 from PIL import Image, ImageDraw, ImageFont
 from datetime import datetime, timedelta
-from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip
+from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip, CompositeVideoClip, vfx
+from moviepy.video.fx import crossfadein
 from gtts import gTTS
 
 st.set_page_config(page_title="小智 - 智能视频助手", page_icon="🤖", layout="wide")
 
-# ========== PWA支持 ==========
-st.markdown("""
-<link rel="manifest" href="manifest.json">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="小智">
-<link rel="apple-touch-icon" href="https://img.icons8.com/color/96/000000/brain.png">
-""", unsafe_allow_html=True)
+# ========== 全局配置 ==========
+POSTER_DIR = "poster_images"
+WALLPAPER_DIR = "wallpapers"
+CACHE_DIR = "cached_videos"
+os.makedirs(POSTER_DIR, exist_ok=True)
+os.makedirs(WALLPAPER_DIR, exist_ok=True)
+os.makedirs(CACHE_DIR, exist_ok=True)
 
-# ========== 美化CSS（与原一致，省略部分样式以节省篇幅，实际需保留完整） ==========
-st.markdown("""
-<style>
-.stApp { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-.main-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px; border-radius: 30px; text-align: center; margin-bottom: 30px; }
-.main-header h1 { color: white; font-size: 2.5rem; }
-.main-header p { color: rgba(255,255,255,0.9); }
-.dashboard-card { background: white; border-radius: 20px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-.stat-row { display: flex; justify-content: space-around; text-align: center; margin-bottom: 20px; }
-.stat-item { flex: 1; }
-.stat-number { font-size: 28px; font-weight: bold; color: #667eea; }
-.stat-label { font-size: 12px; color: #666; }
-.hot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.hot-item { background: #f5f5f5; border-radius: 12px; padding: 10px; text-align: center; font-size: 12px; cursor: pointer; }
-.upload-card { background: white; border-radius: 24px; padding: 30px; text-align: center; margin-bottom: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
-.section-title { font-size: 24px; font-weight: bold; color: white; margin-bottom: 20px; text-align: center; }
-.feature-card { background: white; border-radius: 20px; padding: 20px; text-align: center; transition: all 0.3s ease; cursor: pointer; margin-bottom: 15px; }
-.feature-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-.feature-icon { font-size: 48px; margin-bottom: 10px; }
-.feature-name { font-size: 18px; font-weight: bold; }
-.feature-desc { font-size: 12px; color: #666; }
-.stButton button { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 50px; padding: 10px 20px; font-weight: bold; width: 100%; }
-.points-badge { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 5px 15px; border-radius: 20px; display: inline-block; }
-.grid-card { background: white; border-radius: 20px; padding: 15px; margin-bottom: 20px; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-.grid-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-.bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); display: flex; justify-content: space-around; padding: 8px 0; border-top: 1px solid #ddd; z-index: 1000; }
-.nav-item { text-align: center; flex: 1; cursor: pointer; color: #666; transition: 0.2s; }
-.nav-item.active { color: #667eea; font-weight: bold; }
-.nav-icon { font-size: 24px; }
-.nav-label { font-size: 12px; }
-.voice-card { background: linear-gradient(135deg, #f093fb, #f5576c); border-radius: 20px; padding: 15px; margin-bottom: 20px; text-align: center; cursor: pointer; transition: 0.2s; }
-.voice-card:hover { transform: scale(1.02); }
-.example-card { background: rgba(255,255,255,0.9); border-radius: 20px; padding: 10px; margin: 10px 0; text-align: center; font-size: 12px; color: #666; }
-.task-item { display: flex; justify-content: space-between; align-items: center; background: white; padding: 10px; border-radius: 15px; margin-bottom: 10px; }
-.task-name { font-weight: bold; }
-.task-status { font-size: 12px; padding: 4px 8px; border-radius: 20px; }
-.task-status.done { background: #4caf50; color: white; }
-.task-status.pending { background: #ff9800; color: white; }
-</style>
-""", unsafe_allow_html=True)
-
-# ========== 语言 ==========
-LANG = {
-    "zh": {
-        "title": "小智 - 智能视频助手",
-        "subtitle": "你的AI视频创作伙伴",
-        "login": "登录",
-        "register": "注册",
-        "logout": "退出",
-        "points": "积分",
-        "upload_first": "请先上传视频"
-    },
-    "en": {
-        "title": "XiaoZhi - AI Video Assistant",
-        "subtitle": "Your AI Video Creation Partner",
-        "login": "Login",
-        "register": "Register",
-        "logout": "Logout",
-        "points": "Points",
-        "upload_first": "Please upload a video first"
-    }
-}
-
-def t(key):
-    lang = st.session_state.get('language', 'zh')
-    return LANG[lang].get(key, key)
-
-# ========== 辅助函数 ==========
-def save_uploaded_file(uploaded):
-    if uploaded is None:
-        return None
-    suffix = os.path.splitext(uploaded.name)[1]
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-    tmp.write(uploaded.getbuffer())
-    return tmp.name
-
-def get_video_info(video_path):
-    cap = cv2.VideoCapture(video_path)
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    cap.release()
-    return {"duration": total_frames/fps if fps > 0 else 0}
-
-# ========== 剪辑缓存 ==========
-CUT_CACHE = {}
-
-def get_cache_key(video_path, operation, params):
-    key_str = f"{video_path}_{operation}_{str(sorted(params.items()))}"
-    return hashlib.md5(key_str.encode()).hexdigest()
-
-def cut_video(input_path, start, end, output_path):
-    cache_key = get_cache_key(input_path, 'cut', {'start': start, 'end': end})
-    if cache_key in CUT_CACHE:
-        cached_path = CUT_CACHE[cache_key]
-        if os.path.exists(cached_path):
-            import shutil
-            shutil.copy(cached_path, output_path)
-            return output_path
-    cmd = [
-        "ffmpeg", "-i", input_path,
-        "-ss", str(start), "-to", str(end),
-        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-        "-c:a", "aac", "-b:a", "128k",
-        "-y", output_path
-    ]
-    subprocess.run(cmd, check=True)
-    CUT_CACHE[cache_key] = output_path
-    return output_path
-
-def speed_video(input_path, speed, output_path):
-    cmd = [
-        "ffmpeg", "-i", input_path,
-        "-filter:v", f"setpts={1/speed}*PTS",
-        "-c:a", "aac",
-        "-y", output_path
-    ]
-    subprocess.run(cmd, check=True)
-    return output_path
-
-def video_to_gif(input_path, output_path, start=0, duration=5):
-    subprocess.run(["ffmpeg", "-i", input_path, "-ss", str(start), "-t", str(duration), "-vf", "fps=10,scale=320:-1", output_path])
-
-# ========== 数据库初始化（包含所有表） ==========
+# ========== 数据库初始化（所有表） ==========
 def init_db():
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
@@ -392,7 +269,6 @@ def init_tasks_table():
     conn.commit()
     conn.close()
 
-# ========== 新增表：积分经济、橱窗、话题、勋章 ==========
 def init_economy_tables():
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
@@ -534,7 +410,7 @@ def init_social_tables():
     conn.commit()
     conn.close()
 
-# 用户认证与积分（原有函数，略）
+# ========== 用户认证与积分 ==========
 def hash_password(password, salt=None):
     if salt is None:
         salt = secrets.token_hex(16)
@@ -566,7 +442,7 @@ def register_user(username, password):
     c.execute("SELECT COUNT(*) FROM users")
     count = c.fetchone()[0]
     admin_level = 5 if count == 0 else 0
-    c.execute("INSERT INTO users (username, password_hash, salt, points, admin_level) VALUES (?, ?, ?, 100, ?)", 
+    c.execute("INSERT INTO users (username, password_hash, salt, points, admin_level) VALUES (?, ?, ?, 100, ?)",
               (username, pwd_hash, salt, admin_level))
     conn.commit()
     conn.close()
@@ -696,12 +572,324 @@ def record_action(username, action_type, target_type, target_id):
     conn.commit()
     conn.close()
 
-# ========== 版图/壁纸系统（原有函数，略） ==========
-POSTER_DIR = "poster_images"
-WALLPAPER_DIR = "wallpapers"
-os.makedirs(POSTER_DIR, exist_ok=True)
-os.makedirs(WALLPAPER_DIR, exist_ok=True)
+def tip_post(user, post_id, amount):
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute("SELECT user FROM posts WHERE id=?", (post_id,))
+    row = c.fetchone()
+    if not row:
+        conn.close()
+        return False
+    creator = row[0]
+    if not spend_points(user, amount, f"打赏作品{post_id}"):
+        conn.close()
+        return False
+    add_points(creator, amount, f"收到作品{post_id}的打赏")
+    c.execute("INSERT INTO tips (from_user, to_user, post_id, amount) VALUES (?, ?, ?, ?)",
+              (user, creator, post_id, amount))
+    c.execute("UPDATE posts SET tips_total = tips_total + ? WHERE id=?", (amount, post_id))
+    conn.commit()
+    conn.close()
+    return True
 
+# ========== 辅助函数 ==========
+def save_uploaded_file(uploaded):
+    if uploaded is None:
+        return None
+    suffix = os.path.splitext(uploaded.name)[1]
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+    tmp.write(uploaded.getbuffer())
+    return tmp.name
+
+def get_video_info(video_path):
+    cap = cv2.VideoCapture(video_path)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    cap.release()
+    return {"duration": total_frames/fps if fps > 0 else 0}
+
+def cut_video(input_path, start, end, output_path):
+    cmd = [
+        "ffmpeg", "-i", input_path,
+        "-ss", str(start), "-to", str(end),
+        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+        "-c:a", "aac", "-b:a", "128k",
+        "-y", output_path
+    ]
+    subprocess.run(cmd, check=True)
+    return output_path
+
+def speed_video(input_path, speed, output_path):
+    cmd = [
+        "ffmpeg", "-i", input_path,
+        "-filter:v", f"setpts={1/speed}*PTS",
+        "-c:a", "aac",
+        "-y", output_path
+    ]
+    subprocess.run(cmd, check=True)
+    return output_path
+
+def video_to_gif(input_path, output_path, start=0, duration=5):
+    subprocess.run(["ffmpeg", "-i", input_path, "-ss", str(start), "-t", str(duration), "-vf", "fps=10,scale=320:-1", output_path])
+
+# ========== 智能分析 ==========
+def detect_scene_changes(video_path, threshold=30.0):
+    cap = cv2.VideoCapture(video_path)
+    prev_frame = None
+    changes = []
+    frame_count = 0
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        if prev_frame is not None:
+            diff = cv2.absdiff(prev_frame, gray)
+            mean_diff = np.mean(diff)
+            if mean_diff > threshold:
+                changes.append(frame_count / fps)
+        prev_frame = gray
+        frame_count += 1
+    cap.release()
+    return changes
+
+def detect_motion(video_path, motion_threshold=30):
+    cap = cv2.VideoCapture(video_path)
+    prev_frame = None
+    motion_times = []
+    frame_count = 0
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        if prev_frame is not None:
+            diff = cv2.absdiff(prev_frame, gray)
+            mean_diff = np.mean(diff)
+            if mean_diff > motion_threshold:
+                motion_times.append(frame_count / fps)
+        prev_frame = gray
+        frame_count += 1
+    cap.release()
+    return motion_times
+
+def detect_faces(video_path, cascade_path=cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'):
+    face_cascade = cv2.CascadeClassifier(cascade_path)
+    cap = cv2.VideoCapture(video_path)
+    face_times = []
+    frame_count = 0
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30,30))
+        if len(faces) > 0:
+            face_times.append(frame_count / fps)
+        frame_count += 1
+    cap.release()
+    return face_times
+
+def get_highlight_segments(video_path, duration=5, num_segments=3):
+    scene_changes = detect_scene_changes(video_path)
+    motion = detect_motion(video_path)
+    faces = detect_faces(video_path)
+    score_dict = {}
+    for t in scene_changes:
+        score_dict[t] = score_dict.get(t, 0) + 2
+    for t in motion:
+        score_dict[t] = score_dict.get(t, 0) + 1
+    for t in faces:
+        score_dict[t] = score_dict.get(t, 0) + 3
+    sorted_points = sorted(score_dict.items(), key=lambda x: x[1], reverse=True)
+    segments = []
+    for t, score in sorted_points:
+        if score >= 2:
+            start = max(0, t - duration/2)
+            end = start + duration
+            if not segments or all(abs(start - s[0]) > duration and abs(end - s[1]) > duration for s in segments):
+                segments.append((start, end))
+            if len(segments) >= num_segments:
+                break
+    return segments
+
+def merge_segments(video_path, segments, output_path):
+    clips = []
+    for start, end in segments:
+        clip = VideoFileClip(video_path).subclip(start, end)
+        clips.append(clip)
+    final = concatenate_videoclips(clips, method="compose")
+    final.write_videofile(output_path, codec='libx264', audio_codec='aac')
+    for clip in clips:
+        clip.close()
+    final.close()
+
+def generate_preview_frames(video_path, num_frames=5):
+    cap = cv2.VideoCapture(video_path)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    frames = []
+    times = []
+    for i in range(num_frames):
+        frame_pos = int(total_frames * i / num_frames)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_pos)
+        ret, frame = cap.read()
+        if ret:
+            _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+            img_str = base64.b64encode(buffer).decode()
+            frames.append(f"data:image/jpeg;base64,{img_str}")
+            times.append(frame_pos / fps if fps > 0 else 0)
+    cap.release()
+    return frames, times
+
+def render_preview_section(video_path):
+    frames, times = generate_preview_frames(video_path)
+    if not frames:
+        return
+    st.markdown("#### 🖼️ 关键帧预览")
+    cols = st.columns(len(frames))
+    for i, (img, t) in enumerate(zip(frames, times)):
+        with cols[i]:
+            st.image(img, use_column_width=True)
+            if st.button(f"{t:.1f}s", key=f"preview_btn_{i}"):
+                st.session_state.preview_seek_time = t
+                st.rerun()
+    if 'preview_seek_time' in st.session_state:
+        st.info(f"⏩ 跳转到 {st.session_state.preview_seek_time:.1f} 秒（视频定位功能开发中）")
+
+# ========== 素材库函数 ==========
+def get_video_materials():
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute("SELECT id, name, tags, url, thumbnail FROM video_materials ORDER BY id")
+    rows = c.fetchall()
+    conn.close()
+    return [{"id": r[0], "name": r[1], "tags": r[2].split(','), "url": r[3], "thumbnail": r[4]} for r in rows]
+
+def get_music_materials():
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute("SELECT id, name, tags, url FROM music_materials ORDER BY id")
+    rows = c.fetchall()
+    conn.close()
+    return [{"id": r[0], "name": r[1], "tags": r[2].split(','), "url": r[3]} for r in rows]
+
+def get_materials_for_story(story_text):
+    story_lower = story_text.lower()
+    selected = set()
+    for material in get_video_materials():
+        for tag in material["tags"]:
+            if tag in story_lower:
+                selected.add(material["name"])
+    if not selected:
+        default = get_video_materials()
+        if default:
+            selected = {default[0]["name"], default[1]["name"] if len(default) > 1 else default[0]["name"]}
+    result = [m for m in get_video_materials() if m["name"] in selected]
+    return result
+
+def synthesize_video_from_story(materials, output_path, progress_callback=None):
+    clips = []
+    for i, material in enumerate(materials):
+        local_path = get_cached_video(material['url'])
+        clip = VideoFileClip(local_path)
+        clips.append(clip)
+        if progress_callback:
+            progress_callback((i+1)/len(materials))
+    final_clip = concatenate_videoclips(clips, method="compose")
+    final_clip.write_videofile(output_path, codec='libx264', audio_codec='aac')
+    for clip in clips:
+        clip.close()
+    final_clip.close()
+
+def get_cached_video(url):
+    filename = hashlib.md5(url.encode()).hexdigest() + ".mp4"
+    cache_path = os.path.join(CACHE_DIR, filename)
+    if not os.path.exists(cache_path):
+        r = requests.get(url, stream=True)
+        with open(cache_path, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                f.write(chunk)
+    return cache_path
+
+STOPWORDS = set(['的', '了', '是', '在', '和', '与', '或', '等', '也', '就', '都', '而', '及', '以及', '不仅', '而且', '因为', '所以', '但是', '如果', '虽然', '然而', '并且', '或者', '因此', '于是'])
+
+def extract_keywords_weighted(title, content, topk=5):
+    text = title + " " + title + " " + content
+    keywords = jieba.analyse.extract_tags(text, topK=topk, withWeight=True)
+    keywords = [(word, weight) for word, weight in keywords if word not in STOPWORDS]
+    return keywords
+
+def score_material(material, keywords):
+    score = 0
+    for word, weight in keywords:
+        if word in material["tags"]:
+            score += weight
+    return score
+
+def match_materials_by_keywords(keywords, materials, ref_tags=None, top_n=3):
+    scored = []
+    for m in materials:
+        score = score_material(m, keywords)
+        if ref_tags:
+            ref_score = sum(1 for tag in m["tags"] if tag in ref_tags)
+            score += ref_score * 0.5
+        scored.append((score, m))
+    scored.sort(reverse=True, key=lambda x: x[0])
+    matched = [m for score, m in scored if score > 0]
+    if len(matched) < top_n:
+        default = [m for m in materials if m not in matched]
+        matched.extend(default[:top_n - len(matched)])
+    return matched[:top_n]
+
+def extract_reference_tags(ref_images):
+    tags = []
+    for img_file in ref_images:
+        name = os.path.splitext(img_file.name)[0].lower()
+        for keyword in ["夏天", "海边", "旅行", "美食", "宠物", "科技", "夜景", "城市"]:
+            if keyword in name:
+                tags.append(keyword)
+    return list(set(tags))
+
+def text_to_audio_advanced(text, output_path, speed=1.0, voice_id=None):
+    tts = gTTS(text=text, lang='zh-cn', slow=False)
+    tts.save(output_path)
+
+def synthesize_video_advanced(video_paths, audio_path, output_path, clip_duration=5, use_transition=True):
+    clips = []
+    for path in video_paths:
+        clip = VideoFileClip(path)
+        duration = min(clip_duration, clip.duration)
+        sub = clip.subclip(0, duration)
+        clips.append(sub)
+    if use_transition and len(clips) > 1:
+        final = clips[0]
+        for clip in clips[1:]:
+            final = concatenate_videoclips([final, clip.crossfadein(1)], method="compose")
+    else:
+        final = concatenate_videoclips(clips, method="compose")
+    audio = AudioFileClip(audio_path)
+    final = final.set_audio(audio)
+    final.write_videofile(output_path, codec='libx264', audio_codec='aac')
+    for clip in clips:
+        clip.close()
+    audio.close()
+    final.close()
+
+def generate_video_from_text_enhanced(title, content, materials, speed=1.0, voice_id=None, clip_duration=5, use_transition=True):
+    video_paths = [get_cached_video(m['url']) for m in materials]
+    audio_file = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False).name
+    full_text = title + " " + content
+    text_to_audio_advanced(full_text, audio_file, speed=speed, voice_id=voice_id)
+    output_file = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name
+    synthesize_video_advanced(video_paths, audio_file, output_file,
+                              clip_duration=clip_duration, use_transition=use_transition)
+    return output_file
+
+# ========== 版图/壁纸系统 ==========
 def save_poster_image(frame, poster_id):
     height, width = frame.shape[:2]
     max_size = 300
@@ -914,7 +1102,7 @@ def render_wallpaper_stats():
     st.markdown("### 📊 壁纸统计")
     st.info("壁纸统计")
 
-# ========== 公益与奖池（原有，略） ==========
+# ========== 公益与奖池 ==========
 WELFARE_PROJECTS = [
     {"id": 1, "name": "乡村儿童视频课", "points": 100, "icon": "🏫", "impact": "支持1个孩子上一节视频课"},
     {"id": 2, "name": "环保视频计划", "points": 50, "icon": "🌍", "impact": "支持1个环保视频拍摄"},
@@ -1023,266 +1211,9 @@ def render_jackpot():
     - **10%** 分配给新星榜Top4
     - **10%** 滚入下月奖池
     """)
-    st.markdown('</div>', unsafe_allow_html=True)# ========== 素材获取 ==========
-def get_video_materials():
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute("SELECT id, name, tags, url, thumbnail FROM video_materials ORDER BY id")
-    rows = c.fetchall()
-    conn.close()
-    return [{"id": r[0], "name": r[1], "tags": r[2].split(','), "url": r[3], "thumbnail": r[4]} for r in rows]
+    st.markdown('</div>', unsafe_allow_html=True)
 
-def get_music_materials():
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute("SELECT id, name, tags, url FROM music_materials ORDER BY id")
-    rows = c.fetchall()
-    conn.close()
-    return [{"id": r[0], "name": r[1], "tags": r[2].split(','), "url": r[3]} for r in rows]
-
-def get_materials_for_story(story_text):
-    story_lower = story_text.lower()
-    selected = set()
-    for material in get_video_materials():
-        for tag in material["tags"]:
-            if tag in story_lower:
-                selected.add(material["name"])
-    if not selected:
-        selected = {get_video_materials()[0]["name"], get_video_materials()[1]["name"]}
-    result = [m for m in get_video_materials() if m["name"] in selected]
-    return result
-
-def synthesize_video_from_story(materials, output_path, progress_callback=None):
-    clips = []
-    for i, material in enumerate(materials):
-        local_path = get_cached_video(material['url'])
-        clip = VideoFileClip(local_path)
-        clips.append(clip)
-        if progress_callback:
-            progress_callback((i+1)/len(materials))
-    final_clip = concatenate_videoclips(clips, method="compose")
-    final_clip.write_videofile(output_path, codec='libx264', audio_codec='aac')
-    for clip in clips:
-        clip.close()
-    final_clip.close()
-
-# ========== 关键帧预览 ==========
-def generate_preview_frames(video_path, num_frames=5):
-    cap = cv2.VideoCapture(video_path)
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    frames = []
-    times = []
-    for i in range(num_frames):
-        frame_pos = int(total_frames * i / num_frames)
-        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_pos)
-        ret, frame = cap.read()
-        if ret:
-            _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
-            img_str = base64.b64encode(buffer).decode()
-            frames.append(f"data:image/jpeg;base64,{img_str}")
-            times.append(frame_pos / fps if fps > 0 else 0)
-    cap.release()
-    return frames, times
-
-def render_preview_section(video_path):
-    frames, times = generate_preview_frames(video_path)
-    if not frames:
-        return
-    st.markdown("#### 🖼️ 关键帧预览")
-    cols = st.columns(len(frames))
-    for i, (img, t) in enumerate(zip(frames, times)):
-        with cols[i]:
-            st.image(img, use_column_width=True)
-            if st.button(f"{t:.1f}s", key=f"preview_btn_{i}"):
-                st.session_state.preview_seek_time = t
-                st.rerun()
-    if 'preview_seek_time' in st.session_state:
-        st.info(f"⏩ 跳转到 {st.session_state.preview_seek_time:.1f} 秒（视频定位功能开发中）")
-
-# ========== 智能剪辑分析 ==========
-def detect_scene_changes(video_path, threshold=30.0):
-    cap = cv2.VideoCapture(video_path)
-    prev_frame = None
-    changes = []
-    frame_count = 0
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        if prev_frame is not None:
-            diff = cv2.absdiff(prev_frame, gray)
-            mean_diff = np.mean(diff)
-            if mean_diff > threshold:
-                changes.append(frame_count / fps)
-        prev_frame = gray
-        frame_count += 1
-    cap.release()
-    return changes
-
-def detect_motion(video_path, motion_threshold=30):
-    cap = cv2.VideoCapture(video_path)
-    prev_frame = None
-    motion_times = []
-    frame_count = 0
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        if prev_frame is not None:
-            diff = cv2.absdiff(prev_frame, gray)
-            mean_diff = np.mean(diff)
-            if mean_diff > motion_threshold:
-                motion_times.append(frame_count / fps)
-        prev_frame = gray
-        frame_count += 1
-    cap.release()
-    return motion_times
-
-def detect_faces(video_path, cascade_path=cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'):
-    face_cascade = cv2.CascadeClassifier(cascade_path)
-    cap = cv2.VideoCapture(video_path)
-    face_times = []
-    frame_count = 0
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30,30))
-        if len(faces) > 0:
-            face_times.append(frame_count / fps)
-        frame_count += 1
-    cap.release()
-    return face_times
-
-def get_highlight_segments(video_path, duration=5, num_segments=3):
-    scene_changes = detect_scene_changes(video_path)
-    motion = detect_motion(video_path)
-    faces = detect_faces(video_path)
-    score_dict = {}
-    for t in scene_changes:
-        score_dict[t] = score_dict.get(t, 0) + 2
-    for t in motion:
-        score_dict[t] = score_dict.get(t, 0) + 1
-    for t in faces:
-        score_dict[t] = score_dict.get(t, 0) + 3
-    sorted_points = sorted(score_dict.items(), key=lambda x: x[1], reverse=True)
-    segments = []
-    for t, score in sorted_points:
-        if score >= 2:
-            start = max(0, t - duration/2)
-            end = start + duration
-            if not segments or all(abs(start - s[0]) > duration and abs(end - s[1]) > duration for s in segments):
-                segments.append((start, end))
-            if len(segments) >= num_segments:
-                break
-    return segments
-
-def merge_segments(video_path, segments, output_path):
-    clips = []
-    for start, end in segments:
-        clip = VideoFileClip(video_path).subclip(start, end)
-        clips.append(clip)
-    final = concatenate_videoclips(clips, method="compose")
-    final.write_videofile(output_path, codec='libx264', audio_codec='aac')
-    for clip in clips:
-        clip.close()
-    final.close()
-
-# ========== 图文成片增强 ==========
-STOPWORDS = set(['的', '了', '是', '在', '和', '与', '或', '等', '也', '就', '都', '而', '及', '以及', '不仅', '而且', '因为', '所以', '但是', '如果', '虽然', '然而', '并且', '或者', '因此', '于是'])
-
-def extract_keywords_weighted(title, content, topk=5):
-    text = title + " " + title + " " + content
-    keywords = jieba.analyse.extract_tags(text, topK=topk, withWeight=True)
-    keywords = [(word, weight) for word, weight in keywords if word not in STOPWORDS]
-    return keywords
-
-def score_material(material, keywords):
-    score = 0
-    for word, weight in keywords:
-        if word in material["tags"]:
-            score += weight
-    return score
-
-def match_materials_by_keywords(keywords, materials, ref_tags=None, top_n=3):
-    scored = []
-    for m in materials:
-        score = score_material(m, keywords)
-        if ref_tags:
-            ref_score = sum(1 for tag in m["tags"] if tag in ref_tags)
-            score += ref_score * 0.5
-        scored.append((score, m))
-    scored.sort(reverse=True, key=lambda x: x[0])
-    matched = [m for score, m in scored if score > 0]
-    if len(matched) < top_n:
-        default = [m for m in materials if m not in matched]
-        matched.extend(default[:top_n - len(matched)])
-    return matched[:top_n]
-
-CACHE_DIR = "cached_videos"
-os.makedirs(CACHE_DIR, exist_ok=True)
-
-def get_cached_video(url):
-    filename = hashlib.md5(url.encode()).hexdigest() + ".mp4"
-    cache_path = os.path.join(CACHE_DIR, filename)
-    if not os.path.exists(cache_path):
-        r = requests.get(url, stream=True)
-        with open(cache_path, 'wb') as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
-    return cache_path
-
-def text_to_audio_advanced(text, output_path, speed=1.0, voice_id=None):
-    tts = gTTS(text=text, lang='zh-cn', slow=False)
-    tts.save(output_path)
-
-def synthesize_video_advanced(video_paths, audio_path, output_path, clip_duration=5, use_transition=True):
-    from moviepy.video.fx import crossfadein
-    clips = []
-    for path in video_paths:
-        clip = VideoFileClip(path)
-        duration = min(clip_duration, clip.duration)
-        sub = clip.subclip(0, duration)
-        clips.append(sub)
-    if use_transition and len(clips) > 1:
-        final = clips[0]
-        for clip in clips[1:]:
-            final = concatenate_videoclips([final, clip.crossfadein(1)], method="compose")
-    else:
-        final = concatenate_videoclips(clips, method="compose")
-    audio = AudioFileClip(audio_path)
-    final = final.set_audio(audio)
-    final.write_videofile(output_path, codec='libx264', audio_codec='aac')
-    for clip in clips:
-        clip.close()
-    audio.close()
-    final.close()
-
-def generate_video_from_text_enhanced(title, content, materials, speed=1.0, voice_id=None, clip_duration=5, use_transition=True):
-    video_paths = [get_cached_video(m['url']) for m in materials]
-    audio_file = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False).name
-    full_text = title + " " + content
-    text_to_audio_advanced(full_text, audio_file, speed=speed, voice_id=voice_id)
-    output_file = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name
-    synthesize_video_advanced(video_paths, audio_file, output_file,
-                              clip_duration=clip_duration, use_transition=use_transition)
-    return output_file
-
-def extract_reference_tags(ref_images):
-    tags = []
-    for img_file in ref_images:
-        name = os.path.splitext(img_file.name)[0].lower()
-        for keyword in ["夏天", "海边", "旅行", "美食", "宠物", "科技", "夜景", "城市"]:
-            if keyword in name:
-                tags.append(keyword)
-    return list(set(tags))# ========== 页面渲染函数 ==========
+# ========== 页面渲染函数 ==========
 def render_clip_page():
     # 检查是否有待编辑视频
     if 'pending_edit_video' in st.session_state and st.session_state.pending_edit_video:
@@ -1510,7 +1441,6 @@ def render_ai_creation_page():
                                 try:
                                     synthesize_video_from_story(materials, output_file, progress_callback=update_progress)
                                     st.success("视频合成完成！点击下载")
-                                    # 新增：保存路径并跳转剪辑
                                     st.session_state.pending_edit_video = output_file
                                     st.session_state.jump_to_clip = True
                                     st.rerun()
@@ -1534,7 +1464,6 @@ def render_ai_creation_page():
                 with col2:
                     use_transition = st.checkbox("添加转场效果", value=True)
                     voice_id = st.selectbox("音色", ["默认", "女性", "男性"])
-                # 新增：上传参考图片
                 st.markdown("**参考图片（可选）**")
                 ref_images = st.file_uploader("上传参考图片，AI将根据图片风格匹配素材", type=["jpg", "jpeg", "png"], accept_multiple_files=True, key="ref_images")
                 if ref_images:
@@ -1558,7 +1487,6 @@ def render_ai_creation_page():
                                 use_transition=use_transition
                             )
                             st.success("视频生成完成！点击下载")
-                            # 新增：保存路径并跳转剪辑
                             st.session_state.pending_edit_video = output_file
                             st.session_state.jump_to_clip = True
                             st.rerun()
@@ -1675,25 +1603,7 @@ def render_material_page():
     
     with tab5:
         st.markdown("#### 🛍️ 创作者橱窗")
-        st.info("创作者橱窗开发中，敬请期待！未来可购买视频模板、特效包、音乐等数字资def tip_post(user, post_id, amount):
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute("SELECT user FROM posts WHERE id=?", (post_id,))
-    row = c.fetchone()
-    if not row:
-        conn.close()
-        return False
-    creator = row[0]
-    if not spend_points(user, amount, f"打赏作品{post_id}"):
-        conn.close()
-        return False
-    add_points(creator, amount, f"收到作品{post_id}的打赏")
-    c.execute("INSERT INTO tips (from_user, to_user, post_id, amount) VALUES (?, ?, ?, ?)",
-              (user, creator, post_id, amount))
-    c.execute("UPDATE posts SET tips_total = tips_total + ? WHERE id=?", (amount, post_id))
-    conn.commit()
-    conn.close()
-    return True
+        st.info("创作者橱窗开发中，敬请期待！未来可购买视频模板、特效包、音乐等数字资产。")
 
 def render_community_page():
     st.markdown("### 🌐 灵感社区")
@@ -2074,48 +1984,48 @@ def main():
     init_cabinet_tables()
     init_social_tables()
     
-        render_community_page()
     render_language()
+    render_auth()
 
-如果不是ST . session _ state . get(' logged _ in '，False):
-圣马克道(""
-< div class="main-header " >
-< div style = " font-size:60px；">🤖</div >
-< h1 >小智-智能视频助手</h1 >
-< p >你的人工智能视频创作伙伴</p >
-</div >
-"""，unsafe_allow_html=True)
-st.info("👈 请先在左侧登录或注册")
-返回
+    if not st.session_state.get('logged_in', False):
+        st.markdown("""
+        <div class="main-header">
+            <div style="font-size: 60px;">🤖</div>
+            <h1>小智 - 智能视频助手</h1>
+            <p>你的AI视频创作伙伴</p>
+        </div>
+        """, unsafe_allow_html=True)
+        st.info("👈 请先在左侧登录或注册")
+        return
 
     # 检查是否需要跳转到剪辑页
-如果圣会话_状态。get(' jump _ to _ clip '，False):
-st.session_state.nav_index = 0
-圣会话_状态。跳转到剪辑=假
-st.rerun()
+    if st.session_state.get('jump_to_clip', False):
+        st.session_state.nav_index = 0
+        st.session_state.jump_to_clip = False
+        st.rerun()
 
     # 底部导航栏
-如果"导航索引"不在第一会话状态中：
-st.session_state.nav_index = 0
+    if 'nav_index' not in st.session_state:
+        st.session_state.nav_index = 0
 
-nav_items = ["🎬 剪辑", "🤖人工智能创作", "📦 素材", "🌐 社区", "👤 我的"]
-cols = st.columns(len(nav_items))
-对于我，枚举中的名称(导航项目):
-带列[i]:
-if st.button(name，use_container_width=True):
-st.session_state.nav_index = i
-st.rerun()
+    nav_items = ["🎬 剪辑", "🤖 AI创作", "📦 素材", "🌐 社区", "👤 我的"]
+    cols = st.columns(len(nav_items))
+    for i, name in enumerate(nav_items):
+        with cols[i]:
+            if st.button(name, use_container_width=True):
+                st.session_state.nav_index = i
+                st.rerun()
 
-如果st.session_state.nav_index == 0:
-render_clip_page()
- 否则如果第一会话状态。导航索引= = 1:
-render_ai_creation_page()
- 否则如果第一会话状态。导航索引= = 2:
-render_material_page()
- 否则如果第一会话状态. nav _ index = = 3:
-render_community_page()
-否则:
-render_my_page()
+    if st.session_state.nav_index == 0:
+        render_clip_page()
+    elif st.session_state.nav_index == 1:
+        render_ai_creation_page()
+    elif st.session_state.nav_index == 2:
+        render_material_page()
+    elif st.session_state.nav_index == 3:
+        render_community_page()
+    else:
+        render_my_page()
 
-if __name__ == "__main__ ":
-主要的()产。")
+if __name__ == "__main__":
+    main()
