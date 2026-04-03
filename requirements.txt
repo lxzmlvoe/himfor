@@ -1,5 +1,7 @@
-
-细流
+streamlit
 电影
+opencv-python-headless
 numpy
 枕头
+gTTS
+街霸
